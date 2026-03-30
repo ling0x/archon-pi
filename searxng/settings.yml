@@ -1,0 +1,43 @@
+# SearXNG settings for archon-cli
+# JSON format MUST be enabled for the API to work
+
+general:
+  instance_name: archon-searxng
+  debug: false
+
+search:
+  safe_search: 0
+  autocomplete: ''
+  formats:
+    - html
+    - json
+
+server:
+  port: 8080
+  bind_address: '0.0.0.0'
+  secret_key: 'archon-local-secret-change-me'
+  public_instance: false
+
+ui:
+  static_use_hash: true
+
+engines:
+  - name: google
+    engine: google
+    shortcut: g
+    use_mobile_ui: false
+  - name: bing
+    engine: bing
+    shortcut: b
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: d
+  - name: github
+    engine: github
+    shortcut: gh
+  - name: stackoverflow
+    engine: stackoverflow
+    shortcut: so
+  - name: npm
+    engine: npm
+    shortcut: npm

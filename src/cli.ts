@@ -9,14 +9,13 @@ import { config } from './config.js';
 import { search, formatResults, shouldSearch } from './searxng.js';
 import { streamChat, listModels, type Message } from './llm.js';
 import { launchPi, runPiTask, installExtension } from './pi.js';
-import { sendTask, pollTask } from './openclaw.js';
-import { banner, info, success, warn, error as uiError, searchHeader, streamToken, newline, renderMarkdown } from './ui.js';
+import { banner, info, warn, error as uiError, searchHeader, streamToken, newline } from './ui.js';
 
 const program = new Command();
 
 program
   .name('archon')
-  .description('Local terminal coding assistant — SearXNG + Ollama + pi + OpenClaw')
+  .description('Local terminal coding assistant — SearXNG + Ollama + pi')
   .version('0.1.0');
 
 // ─── ask ──────────────────────────────────────────────────────────────────────
@@ -73,7 +72,6 @@ program
   .action(async (opts: { pi?: boolean; search?: boolean; model?: string }) => {
     banner();
 
-    // Launch pi TUI if requested
     if (opts.pi) {
       if (opts.search) {
         info('Launching pi with SearXNG extension active…');
@@ -86,7 +84,6 @@ program
       return;
     }
 
-    // Plain Ollama REPL
     info(`Model: ${opts.model ?? config.ollama.model}`);
     if (opts.search) info('Web grounding: ON (SearXNG auto-search)');
     console.log(chalk.dim('  Type your message. Ctrl+C or empty line twice to quit.\n'));
@@ -96,7 +93,6 @@ program
     const question = (q: string) => new Promise<string>((res) => rl.question(q, res));
 
     let emptyCount = 0;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const input = await question(chalk.cyan('you › ')).catch(() => '');
 
@@ -109,15 +105,12 @@ program
 
       let userContent = input.trim();
 
-      // Auto-search if enabled and trigger matches
       if (opts.search && shouldSearch(userContent)) {
         const spinner = ora('SearXNG…').start();
         try {
           const results = await search(userContent);
           spinner.stop();
-          if (results.length > 0) {
-            userContent += formatResults(results);
-          }
+          if (results.length > 0) userContent += formatResults(results);
         } catch {
           spinner.fail('Search failed — continuing without grounding');
         }
@@ -175,44 +168,6 @@ program
     runPiTask(opts.instruction, opts.file, searchCtx);
   });
 
-// ─── openclaw ──────────────────────────────────────────────────────────────────
-program
-  .command('openclaw <task>')
-  .description('Send a task to the OpenClaw background agent daemon')
-  .option('-a, --agent <agent>', 'OpenClaw agent name')
-  .option('-w, --wait', 'Wait for task completion and print result')
-  .action(async (task: string, opts: { agent?: string; wait?: boolean }) => {
-    banner();
-    const spinner = ora('Sending task to OpenClaw…').start();
-
-    try {
-      const job = await sendTask(task, opts.agent);
-      spinner.succeed(`Task queued: ${job.id}`);
-
-      if (opts.wait) {
-        const waiting = ora('Waiting for completion…').start();
-        const result = await pollTask(job.id);
-        waiting.stop();
-        if (result.result) {
-          console.log();
-          renderMarkdown(result.result);
-        }
-        if (result.status === 'error') {
-          uiError('Task completed with errors.');
-        } else {
-          success('Task completed.');
-        }
-      } else {
-        info(`Run with --wait to poll for results, or check OpenClaw dashboard.`);
-      }
-    } catch (err: unknown) {
-      spinner.fail('OpenClaw request failed');
-      uiError(err instanceof Error ? err.message : String(err));
-      uiError('Is the OpenClaw daemon running? Run: openclaw daemon start');
-      process.exit(1);
-    }
-  });
-
 // ─── models ────────────────────────────────────────────────────────────────────
 program
   .command('models')
@@ -246,8 +201,8 @@ program
     banner();
     try {
       installExtension();
-      info(`Activate with: archon chat --pi --search`);
-      info(`Or set PI_EXTENSIONS=archon-search before running pi manually.`);
+      info('Activate with: archon chat --pi --search');
+      info('Or set PI_EXTENSIONS=archon-search before running pi manually.');
     } catch (err: unknown) {
       uiError(`Install failed: ${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);

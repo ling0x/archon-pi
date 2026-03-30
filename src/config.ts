@@ -17,10 +17,6 @@ export const config = {
       'i'
     ),
   },
-  openclaw: {
-    url: process.env.ARCHON_OPENCLAW_URL ?? 'http://localhost:3000',
-    agent: process.env.ARCHON_OPENCLAW_AGENT ?? 'default',
-  },
   pi: {
     extensionDir: resolve(homedir(), '.pi', 'extensions'),
     extensionName: 'archon-search',

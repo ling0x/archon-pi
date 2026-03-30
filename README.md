@@ -5,7 +5,7 @@ A local-first terminal coding assistant. Everything runs on your machine — no 
 **Stack:**
 - **[SearXNG](https://searxng.org)** — self-hosted web search at `localhost:8080`, provides real-time grounding context
 - **[Ollama](https://ollama.ai)** — local LLM inference at `localhost:11434`
-- **[pi](https://shittycodingagent.ai)** — terminal coding agent that reads, edits, and commits your files
+- **[pi](https://pi.dev)** — terminal coding agent that reads, edits, and commits your files
 
 ## How it works
 

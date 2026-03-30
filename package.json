@@ -1,7 +1,7 @@
 {
   "name": "archon-cli",
   "version": "0.1.0",
-  "description": "Local terminal coding assistant — SearXNG + Ollama + pi + OpenClaw",
+  "description": "Local terminal coding assistant — SearXNG + Ollama + pi",
   "type": "module",
   "bin": {
     "archon": "./dist/cli.js"

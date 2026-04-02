@@ -1,18 +1,21 @@
 # archon-pi
 
-A [pi coding agent](https://github.com/mariozechner/pi-coding-agent) extension that gives pi a `web_search` tool powered by a local [SearXNG](https://searxng.github.io/searxng/) instance. Queries are optionally rewritten into tighter search terms via [Ollama](https://ollama.com/) before hitting SearXNG.
+A [pi coding agent](https://github.com/mariozechner/pi-coding-agent) extension that gives pi a `web_search` tool powered by a local [SearXNG](https://searxng.github.io/searxng/) instance. Queries are rewritten into tighter search terms via [Ollama](https://ollama.com/) before hitting SearXNG.
 
-## What this repo is
+## How it works
 
-- **A pi extension** — the main artifact is `.pi/extensions/archon-search.ts`
-- **A SearXNG Docker config** — `docker-compose.yml` + `searxng/` for a local search instance
-- **Optional helper code** in `src/` — not required to use the extension
+1. Pi calls `web_search` with a natural-language query
+2. The query is sent to Ollama's `/api/generate` to be condensed into a short, precise search string (max 8 words)
+3. The rewritten query hits SearXNG's JSON API
+4. The top N results are returned to pi as formatted Markdown
+
+The extension also hooks `session_start`, `tool_execution_start`, and `tool_execution_end` to show live status in the pi UI.
 
 ## Prerequisites
 
 - [Ollama](https://ollama.com/) running locally
 - [Docker](https://www.docker.com/) (for SearXNG)
-- [pi coding agent](https://github.com/mariozechner/pi-coding-agent) installed
+- [pi coding agent](https://github.com/mariozechner/pi-coding-agent) installed (`npm i -g @oh-my-pi/pi-tui`)
 
 ## Setup
 
@@ -33,19 +36,16 @@ SearXNG will be available at `http://localhost:8080`.
 
 ### 3. Install the extension
 
-Copy the extension to pi's extensions directory:
-
 ```bash
-# Global (all projects)
+# Global — available in all pi sessions
 mkdir -p ~/.pi/agent/extensions
 cp .pi/extensions/archon-search.ts ~/.pi/agent/extensions/archon-search.ts
 
-# Or project-local (this project only)
-mkdir -p .pi/extensions
+# Project-local — only active when pi runs in this directory
 # (already present if you cloned this repo)
 ```
 
-Pi auto-discovers extensions from `~/.pi/agent/extensions/` and project-local `.pi/extensions/` directories.
+Pi auto-discovers extensions from `~/.pi/agent/extensions/` and from `.pi/extensions/` in the current working directory.
 
 ### 4. Run pi
 
@@ -53,35 +53,20 @@ Pi auto-discovers extensions from `~/.pi/agent/extensions/` and project-local `.
 pi --model ollama/qwen2.5-coder:7b
 ```
 
-The `web_search` tool will be registered automatically when pi starts.
+The `web_search` tool is registered automatically on session start.
 
 ## Configuration
 
-All settings are controlled via environment variables (copy `.env.example` to `.env`):
+Copy `.env.example` to `.env` and adjust as needed. All variables are optional — the defaults work out of the box.
 
 | Variable | Default | Description |
 |---|---|---|
 | `ARCHON_OLLAMA_HOST` | `http://localhost:11434` | Ollama API base URL |
 | `ARCHON_MODEL` | `qwen2.5-coder:7b` | Model used for query rewriting |
 | `ARCHON_SEARXNG_URL` | `http://localhost:8080` | SearXNG instance URL |
-| `ARCHON_SEARCH_TOP_N` | `5` | Number of results to return |
+| `ARCHON_SEARCH_TOP_N` | `5` | Number of results to inject |
 | `ARCHON_SEARCH_CATEGORIES` | `general,it` | SearXNG search categories |
-| `ARCHON_REWRITE_QUERY` | `true` | Rewrite queries via Ollama before searching |
-
-## How it works
-
-1. Pi calls `web_search` with a natural-language query
-2. If `ARCHON_REWRITE_QUERY=true`, the query is sent to Ollama's `/api/generate` endpoint to be condensed into a short, precise search string (max 8 words)
-3. The rewritten query hits SearXNG's JSON API
-4. The top `ARCHON_SEARCH_TOP_N` results are returned to pi as formatted text
-
-## Extension API events
-
-The extension hooks into three pi lifecycle events:
-
-- `session_start` — sets a status indicator in the pi UI
-- `tool_execution_start` — shows "searching..." while a search is in progress
-- `tool_execution_end` — resets the status indicator when done
+| `ARCHON_REWRITE_QUERY` | `true` | Use Ollama to rewrite queries before searching |
 
 ## Project structure
 
@@ -89,10 +74,9 @@ The extension hooks into three pi lifecycle events:
 .
 ├── .pi/
 │   └── extensions/
-│       └── archon-search.ts   # The pi extension (main artifact)
-├── searxng/                   # SearXNG configuration
-├── src/                       # Optional helper code
-├── docker-compose.yml         # SearXNG Docker setup
+│       └── archon-search.ts   # The pi extension
+├── searxng/                   # SearXNG Docker configuration
+├── docker-compose.yml         # Spins up a local SearXNG instance
 ├── .env.example               # Environment variable reference
 └── README.md
 ```

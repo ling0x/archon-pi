@@ -3,7 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 const OLLAMA_HOST = process.env.ARCHON_OLLAMA_HOST ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.ARCHON_MODEL ?? "qwen2.5-coder:7b";
+const OLLAMA_MODEL = process.env.ARCHON_MODEL ?? "mistral:7b";
 const SEARXNG_URL = process.env.ARCHON_SEARXNG_URL ?? "http://localhost:8080";
 const SEARCH_TOP_N = parseInt(process.env.ARCHON_SEARCH_TOP_N ?? "5", 10);
 const SEARCH_CATEGORIES = process.env.ARCHON_SEARCH_CATEGORIES ?? "general,it";
@@ -27,7 +27,7 @@ async function rewriteQuery(input: string): Promise<string> {
     });
 
     if (!res.ok) return input;
-    const data = await res.json() as { response?: string };
+    const data = (await res.json()) as { response?: string };
     return data.response?.trim() || input;
   } catch {
     return input;
@@ -49,7 +49,7 @@ async function searchWeb(query: string) {
     throw new Error(`SearXNG error: ${res.status} ${res.statusText}`);
   }
 
-  const data = await res.json() as {
+  const data = (await res.json()) as {
     results?: Array<{
       title?: string;
       url?: string;
@@ -66,15 +66,16 @@ async function searchWeb(query: string) {
   }));
 }
 
-function formatResults(results: Awaited<ReturnType<typeof searchWeb>>, query: string) {
+function formatResults(
+  results: Awaited<ReturnType<typeof searchWeb>>,
+  query: string,
+) {
   if (results.length === 0) return `No results found for: ${query}`;
 
   return [
     `Search query: ${query}`,
     "",
-    ...results.map(
-      (r) => `[${r.index}] ${r.title}\n${r.url}\n${r.content}`
-    ),
+    ...results.map((r) => `[${r.index}] ${r.title}\n${r.url}\n${r.content}`),
   ].join("\n\n");
 }
 
@@ -107,11 +108,11 @@ export default function archonSearch(pi: ExtensionAPI) {
     promptGuidelines: [
       "Prefer web_search for current library APIs and version-sensitive questions.",
       "Search before guessing when debugging unfamiliar errors.",
-      "Use concise technical queries."
+      "Use concise technical queries.",
     ],
     parameters: Type.Object({
       query: Type.String({
-        description: "Natural language search request or technical query"
+        description: "Natural language search request or technical query",
       }),
     }),
     async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
@@ -122,7 +123,9 @@ export default function archonSearch(pi: ExtensionAPI) {
       const rewritten = await rewriteQuery(params.query);
 
       onUpdate?.({
-        content: [{ type: "text", text: `Searching SearXNG for: ${rewritten}` }],
+        content: [
+          { type: "text", text: `Searching SearXNG for: ${rewritten}` },
+        ],
       });
 
       const results = await searchWeb(rewritten);

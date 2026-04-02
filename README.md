@@ -1,6 +1,6 @@
 # archon-pi
 
-A [pi coding agent](https://github.com/mariozechner/pi-coding-agent) extension that gives pi a `web_search` tool powered by a local [SearXNG](https://searxng.github.io/searxng/) instance. Queries are rewritten into tighter search terms via [Ollama](https://ollama.com/) before hitting SearXNG.
+A [pi coding agent](https://github.com/badlogic/pi-mono) extension that gives pi a `web_search` tool powered by a local [SearXNG](https://searxng.github.io/searxng/) instance. Queries are rewritten into tighter search terms via [Ollama](https://ollama.com/) before hitting SearXNG.
 
 ## How it works
 

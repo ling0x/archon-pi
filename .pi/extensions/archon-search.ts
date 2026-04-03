@@ -5,7 +5,9 @@ import { Type } from "@sinclair/typebox";
 const OLLAMA_HOST = process.env.ARCHON_OLLAMA_HOST ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.ARCHON_MODEL ?? "mistral:7b";
 const SEARXNG_URL = process.env.ARCHON_SEARXNG_URL ?? "http://localhost:8080";
-const SEARCH_TOP_N = parseInt(process.env.ARCHON_SEARCH_TOP_N ?? "5", 10);
+const SEARCH_TOP_N_RAW = parseInt(process.env.ARCHON_SEARCH_TOP_N ?? "5", 10);
+const SEARCH_TOP_N =
+  Number.isFinite(SEARCH_TOP_N_RAW) && SEARCH_TOP_N_RAW > 0 ? SEARCH_TOP_N_RAW : 5;
 const SEARCH_CATEGORIES = process.env.ARCHON_SEARCH_CATEGORIES ?? "general,it";
 const REWRITE_QUERY = (process.env.ARCHON_REWRITE_QUERY ?? "true") !== "false";
 
@@ -118,6 +120,7 @@ export default function archonSearch(pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, onUpdate, _ctx) {
       onUpdate?.({
         content: [{ type: "text", text: "Rewriting query..." }],
+        details: {},
       });
 
       const rewritten = await rewriteQuery(params.query);
@@ -126,6 +129,7 @@ export default function archonSearch(pi: ExtensionAPI) {
         content: [
           { type: "text", text: `Searching SearXNG for: ${rewritten}` },
         ],
+        details: {},
       });
 
       const results = await searchWeb(rewritten);

@@ -1,6 +1,6 @@
 # archon-pi
 
-A [pi coding agent](https://github.com/badlogic/pi-mono) extension that gives pi
+A [pi coding agent](https://github.com/mariozechner/pi-coding-agent) extension that gives pi
 a `web_search` tool powered by a local
 [SearXNG](https://searxng.github.io/searxng/) instance. Queries are rewritten
 into tighter search terms via [Ollama](https://ollama.com/) before hitting
@@ -22,7 +22,7 @@ The extension also hooks `session_start`, `tool_execution_start`, and
 - [Ollama](https://ollama.com/) running locally
 - [Docker](https://www.docker.com/) (for SearXNG)
 - [pi coding agent](https://github.com/mariozechner/pi-coding-agent) installed
-  (`npm i -g @oh-my-pi/pi-tui`)
+  (`npm i -g @mariozechner/pi-coding-agent`; provides the `pi` CLI)
 
 ## Setup
 
@@ -67,7 +67,9 @@ The `web_search` tool is registered automatically on session start.
 ## Configuration
 
 Copy `.env.example` to `.env` and adjust as needed. All variables are optional —
-the defaults work out of the box.
+the defaults work out of the box. Pi does not load `.env` files automatically, so
+either `export` the variables in your shell, or start pi with something like
+`set -a && source .env && set +a && pi` (bash).
 
 | Variable                   | Default                  | Description                                    |
 | -------------------------- | ------------------------ | ---------------------------------------------- |

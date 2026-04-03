@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "latest",
+    "@mariozechner/pi-coding-agent": "^0.64.0",
     "@sinclair/typebox": "^0.34.41"
   },
   "devDependencies": {

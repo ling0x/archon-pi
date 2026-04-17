@@ -2,6 +2,29 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
+/** Bounded TTL cache (FIFO eviction). Avoids npm deps so Pi can load this from ~/.pi/agent/extensions/. */
+function createTtlCache<K, V>(max: number, ttlMs: number) {
+  const store = new Map<K, { value: V; expiresAt: number }>();
+  return {
+    get(key: K): V | undefined {
+      const e = store.get(key);
+      if (!e) return undefined;
+      if (Date.now() >= e.expiresAt) {
+        store.delete(key);
+        return undefined;
+      }
+      return e.value;
+    },
+    set(key: K, value: V): void {
+      if (store.size >= max && !store.has(key)) {
+        const oldest = store.keys().next().value as K | undefined;
+        if (oldest !== undefined) store.delete(oldest);
+      }
+      store.set(key, { value, expiresAt: Date.now() + ttlMs });
+    },
+  };
+}
+
 const OLLAMA_HOST = process.env.ARCHON_OLLAMA_HOST ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.ARCHON_MODEL ?? "mistral:7b";
 const SEARXNG_URL = process.env.ARCHON_SEARXNG_URL ?? "http://localhost:8080";
@@ -10,11 +33,28 @@ const SEARCH_TOP_N =
   Number.isFinite(SEARCH_TOP_N_RAW) && SEARCH_TOP_N_RAW > 0 ? SEARCH_TOP_N_RAW : 5;
 const SEARCH_CATEGORIES = process.env.ARCHON_SEARCH_CATEGORIES ?? "general,it";
 const REWRITE_QUERY = (process.env.ARCHON_REWRITE_QUERY ?? "true") !== "false";
+const REWRITE_TIMEOUT_MS = parseInt(process.env.ARCHON_REWRITE_TIMEOUT ?? "3000", 10);
+const SEARCH_TIMEOUT_MS = parseInt(process.env.ARCHON_SEARCH_TIMEOUT ?? "10000", 10);
+const MAX_RETRIES = parseInt(process.env.ARCHON_MAX_RETRIES ?? "2", 10);
+
+const searchCache = createTtlCache<string, Awaited<ReturnType<typeof searchWeb>>>(
+  100,
+  5 * 60 * 1000,
+);
+
+const rewriteCache = createTtlCache<string, string>(50, 30 * 60 * 1000);
 
 async function rewriteQuery(input: string): Promise<string> {
   if (!REWRITE_QUERY) return input;
 
+  const cacheKey = input.toLowerCase().trim();
+  const cached = rewriteCache.get(cacheKey);
+  if (cached) return cached;
+
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REWRITE_TIMEOUT_MS);
+
     const res = await fetch(`${OLLAMA_HOST}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -26,14 +66,40 @@ async function rewriteQuery(input: string): Promise<string> {
           `Rules: max 8 words, no quotes, no punctuation, keep libraries/framework names.\n\n` +
           `Question: ${input}\n\nSearch query:`,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!res.ok) return input;
     const data = (await res.json()) as { response?: string };
-    return data.response?.trim() || input;
+    const rewritten = data.response?.trim() || input;
+    rewriteCache.set(cacheKey, rewritten);
+    return rewritten;
   } catch {
     return input;
   }
+}
+
+async function searchWithRetry(query: string, retries = MAX_RETRIES): Promise<Awaited<ReturnType<typeof searchWeb>>> {
+  const cacheKey = `${query}|${SEARCH_CATEGORIES}|${SEARCH_TOP_N}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached) return cached;
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const result = await searchWeb(query);
+      searchCache.set(cacheKey, result);
+      return result;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function searchWeb(query: string) {
@@ -42,10 +108,15 @@ async function searchWeb(query: string) {
   url.searchParams.set("format", "json");
   url.searchParams.set("categories", SEARCH_CATEGORIES);
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+
   const res = await fetch(url.toString(), {
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(8000),
+    signal: controller.signal,
   });
+
+  clearTimeout(timeout);
 
   if (!res.ok) {
     throw new Error(`SearXNG error: ${res.status} ${res.statusText}`);
@@ -132,7 +203,7 @@ export default function archonSearch(pi: ExtensionAPI) {
         details: {},
       });
 
-      const results = await searchWeb(rewritten);
+      const results = await searchWithRetry(rewritten);
       const text = formatResults(results, rewritten);
 
       return {
